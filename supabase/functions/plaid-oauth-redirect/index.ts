@@ -1,8 +1,3 @@
-// Supabase Edge Function: Plaid OAuth redirect endpoint
-// When a bank redirects here after OAuth, this page loads.
-// For full OAuth: configure Universal Links so this URL opens your app instead.
-// Add this exact URL to Plaid Dashboard → Team Settings → API → Allowed redirect URIs
-
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 
 const HTML = `<!DOCTYPE html>

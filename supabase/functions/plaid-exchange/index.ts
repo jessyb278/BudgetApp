@@ -1,14 +1,8 @@
-// Supabase Edge Function: Exchange Plaid public_token and sync data
-// 1. Exchanges public_token for access_token
-// 2. Fetches accounts and transactions from Plaid
-// 3. Stores connection, accounts, and transactions in Supabase
-
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2"
 
 const PLAID_BASE = "https://sandbox.plaid.com"
 
-// Map Plaid personal_finance_category.primary to app categories
 function mapPlaidCategoryToApp(primary: string): string {
   const p = (primary || "").toUpperCase()
   if (p.includes("TRANSFER")) return "Transfer"
@@ -29,7 +23,6 @@ function getTransactionType(primary: string): "purchase" | "transfer" | "payment
   return "purchase"
 }
 
-// Part 1: Map Plaid type/subtype to category_group
 function getCategoryGroup(plaidType: string, subtype: string): string {
   const t = (plaidType || "depository").toLowerCase()
   const st = (subtype || "").toLowerCase()
@@ -44,7 +37,6 @@ function getCategoryGroup(plaidType: string, subtype: string): string {
   return "Checking"
 }
 
-// Part 3: Normalize balance sign - assets positive, liabilities negative
 function normalizeBalance(rawBalance: number | null, classification: string): number {
   const bal = rawBalance ?? 0
   if (classification === "liability") return -Math.abs(bal)
@@ -89,7 +81,6 @@ serve(async (req) => {
       return Response.json({ error: "Plaid not configured" }, { status: 500 })
     }
 
-    // 1. Exchange public_token for access_token
     const exchangeRes = await fetch(`${PLAID_BASE}/item/public_token/exchange`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -106,7 +97,6 @@ serve(async (req) => {
 
     const { access_token, item_id } = exchangeData
 
-    // 2. Get institution name (optional - sandbox may return generic)
     let institutionName = "Connected Bank"
     try {
       const itemRes = await fetch(`${PLAID_BASE}/item/get`, {
@@ -120,7 +110,6 @@ serve(async (req) => {
       }
     } catch (_) {}
 
-    // 3. Check for existing connection (prevent duplicate)
     const { data: existing } = await supabase
       .from("plaid_connections")
       .select("id")
@@ -132,7 +121,6 @@ serve(async (req) => {
       return Response.json({ error: "This bank is already linked" }, { status: 409 })
     }
 
-    // 4. Store connection (access_token stays on server only)
     const { data: conn, error: connErr } = await supabase
       .from("plaid_connections")
       .insert({
@@ -149,7 +137,6 @@ serve(async (req) => {
       return Response.json({ error: connErr.message }, { status: 500 })
     }
 
-    // 5. Fetch accounts
     const accountsRes = await fetch(`${PLAID_BASE}/accounts/get`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -162,8 +149,6 @@ serve(async (req) => {
 
     const plaidAccounts = accountsData.accounts || []
 
-    // 6. Upsert accounts (Part 1-3: classification, category_group, normalized balance)
-    // Fetch existing to preserve include_in_net_worth, custom_name, is_hidden
     const plaidIds = plaidAccounts.map((pa) => pa.account_id)
     const { data: existingAccounts } = await supabase
       .from("accounts")
@@ -208,7 +193,6 @@ serve(async (req) => {
       if (upserted?.id) accountIdMap[pa.account_id] = upserted.id
     }
 
-    // 7. Fetch transactions (sync, cursor-based)
     let cursor: string | null = null
     let hasMore = true
     const allAdded: Array<{
@@ -237,7 +221,6 @@ serve(async (req) => {
       if (syncData.error) break
 
       for (const t of syncData.added || []) {
-        // Plaid: positive = money out, negative = money in. Store as negative for expenses, positive for income.
         const plaidAmount = t.amount ?? 0
         const amount = plaidAmount > 0 ? -plaidAmount : Math.abs(plaidAmount)
         allAdded.push({
@@ -257,7 +240,6 @@ serve(async (req) => {
       if (syncData.added?.length === 0 && !hasMore) break
     }
 
-    // 8. Update cursor in plaid_connections
     if (cursor) {
       await supabase
         .from("plaid_connections")
@@ -265,7 +247,6 @@ serve(async (req) => {
         .eq("id", conn.id)
     }
 
-    // 9. Insert transactions (Part 9: mapped category, transaction_type)
     for (const t of allAdded) {
       const supabaseAccountId = accountIdMap[t.account_id]
       if (!supabaseAccountId) continue

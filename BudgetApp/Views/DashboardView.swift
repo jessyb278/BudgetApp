@@ -494,7 +494,6 @@ struct DashboardView: View {
     
     private func refresh() async {
         let previousNetWorth = data.netWorth
-        // Refresh from Plaid first, then fetch from Supabase
         if let session = try? await SupabaseService.shared.client.auth.session {
             _ = try? await PlaidService.shared.refreshAccounts(authToken: session.accessToken)
         }

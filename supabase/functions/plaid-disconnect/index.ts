@@ -1,6 +1,3 @@
-// Supabase Edge Function: Disconnect all Plaid institutions for a user
-// Deletes plaid_connections, accounts, and transactions
-
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2"
 
@@ -31,7 +28,6 @@ serve(async (req) => {
 
     const supabase = createClient(supabaseUrl, supabaseService)
 
-    // 1. Get all account IDs for this user
     const { data: accounts } = await supabase
       .from("accounts")
       .select("id")
@@ -39,15 +35,12 @@ serve(async (req) => {
 
     const accountIds = (accounts ?? []).map((a) => a.id)
 
-    // 2. Delete transactions for those accounts
     if (accountIds.length > 0) {
       await supabase.from("transactions").delete().in("account_id", accountIds)
     }
 
-    // 3. Delete accounts
     await supabase.from("accounts").delete().eq("user_id", user.id)
 
-    // 4. Delete plaid_connections
     const { error: connErr } = await supabase
       .from("plaid_connections")
       .delete()

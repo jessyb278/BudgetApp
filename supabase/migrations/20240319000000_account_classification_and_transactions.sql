@@ -1,7 +1,3 @@
--- Account classification and transaction categorization
--- Run in Supabase SQL Editor (Dashboard > SQL Editor)
-
--- 1. Add type, subtype, classification to accounts
 DO $$
 BEGIN
   IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'accounts' AND column_name = 'subtype') THEN
@@ -12,7 +8,6 @@ BEGIN
   END IF;
 END $$;
 
--- 2. Add transaction_type to transactions (for excluding transfers, payments from budgets)
 DO $$
 BEGIN
   IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'transactions' AND column_name = 'transaction_type') THEN
@@ -23,7 +18,6 @@ BEGIN
   END IF;
 END $$;
 
--- 3. Add optional account settings (Part 8)
 DO $$
 BEGIN
   IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'accounts' AND column_name = 'include_in_net_worth') THEN
@@ -37,9 +31,6 @@ BEGIN
   END IF;
 END $$;
 
--- 4. Backfill classification from existing type column
--- Assets: depository, investment (checking, savings, brokerage)
--- Liabilities: credit, loan
 UPDATE accounts
 SET classification = CASE
   WHEN LOWER(COALESCE(type, 'depository')) IN ('credit', 'loan') THEN 'liability'

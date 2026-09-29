@@ -1,6 +1,3 @@
-// Supabase Edge Function: Refresh/sync existing Plaid connections
-// Fetches accounts and transactions for all linked institutions, upserts accounts, adds new transactions
-
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2"
 
@@ -93,7 +90,6 @@ serve(async (req) => {
     for (const conn of connections) {
       const access_token = conn.access_token
 
-      // 1. Fetch accounts
       const accountsRes = await fetch(`${PLAID_BASE}/accounts/get`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -144,7 +140,6 @@ serve(async (req) => {
         totalAccountsUpdated++
       }
 
-      // 2. Fetch transactions (sync)
       let cursor: string | null = conn.transactions_cursor ?? null
       let hasMore = true
       const accountIdMap: Record<string, string> = {}

@@ -1,7 +1,3 @@
-// Supabase Edge Function: Create Plaid Link Token
-// Called by the app BEFORE opening Plaid Link. Returns a link_token.
-// The link_token is used to initialize the Plaid Link SDK.
-
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2"
 
